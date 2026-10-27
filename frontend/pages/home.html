@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="ko">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>응급상황 의사결정 알고리즘</title>
+    <style>
+        :root { color-scheme: light dark; }
+        * { box-sizing: border-box; }
+        html, body { margin: 0; min-height: 100%; font-family: Inter, Pretendard, "Noto Sans KR", system-ui, sans-serif; }
+        body { background: light-dark(#eef3f7, #0b1117); color: light-dark(#14202b, #e8eef3); }
+        #app { min-height: 100vh; background: light-dark(#f5f8fb, #0e151c); color: light-dark(#14202b, #e8eef3); }
+        .header { background: light-dark(#ffffff, #121b23); border-bottom: 1px solid light-dark(#dce5ec, #25323c); }
+        .header-inner { max-width: 1120px; margin: auto; padding: 28px 24px 24px; display:flex; justify-content:space-between; gap:20px; align-items:center; }
+        .brand { display:flex; align-items:center; gap:14px; }
+        .logo { width:48px; height:48px; border-radius:14px; display:grid; place-items:center; background:#e53935; color:white; font-weight:900; font-size:22px; box-shadow:0 8px 20px #e5393533; }
+        .eyebrow { font-size:12px; font-weight:800; letter-spacing:.12em; color:#e53935; margin-bottom:4px; }
+        h1 { margin:0; font-size:24px; letter-spacing:-.04em; }
+        .badge { padding:8px 12px; border:1px solid light-dark(#dbe4eb,#293741); border-radius:999px; font-size:12px; font-weight:700; color:light-dark(#536575,#aebbc5); }
+        main { max-width:1120px; margin:auto; padding:34px 24px 60px; }
+        .progress { display:flex; align-items:center; gap:8px; margin-bottom:22px; }
+        .dot { width:10px; height:10px; border-radius:50%; background:light-dark(#cbd6de,#33424d); }
+        .dot.active { background:#e53935; box-shadow:0 0 0 5px #e5393518; }
+        .progress-line { height:2px; flex:1; background:light-dark(#d9e2e9,#28353e); }
+        .layout { display:grid; grid-template-columns: 1fr 330px; gap:22px; }
+        .card { background:light-dark(#ffffff,#121b23); border:1px solid light-dark(#dce5ec,#25323c); border-radius:22px; box-shadow:0 16px 45px #13202b0d; }
+        .question { padding:34px; min-height:490px; display:flex; flex-direction:column; }
+        .step-label { display:inline-flex; align-items:center; gap:7px; width:max-content; padding:7px 11px; border-radius:8px; background:light-dark(#edf3f7,#1b2730); color:light-dark(#627584,#aebcc6); font-size:12px; font-weight:800; }
+        .question h2 { margin:25px 0 10px; font-size:32px; letter-spacing:-.05em; line-height:1.2; }
+        .question p { margin:0 0 28px; color:light-dark(#667784,#aebbc5); line-height:1.7; }
+        .options { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-top:auto; }
+        .option { border:1px solid light-dark(#d8e2e9,#2b3943); background:light-dark(#fbfcfd,#16212a); border-radius:16px; padding:18px; cursor:pointer; text-align:left; transition:.18s ease; }
+        .option:hover { transform:translateY(-2px); border-color:#e53935; box-shadow:0 10px 24px #e5393515; }
+        .option .key { display:inline-grid; place-items:center; width:30px; height:30px; border-radius:9px; background:#e53935; color:#fff; font-weight:900; margin-bottom:12px; }
+        .option strong { display:block; font-size:15px; margin-bottom:5px; }
+        .option span { color:light-dark(#71818d,#9eacb6); font-size:12px; line-height:1.5; }
+        .side { padding:22px; }
+        .side h3 { margin:0 0 16px; font-size:15px; }
+        .tree { display:flex; flex-direction:column; gap:9px; }
+        .node { padding:12px 13px; border-radius:12px; border:1px solid light-dark(#e0e7ed,#293640); background:light-dark(#f8fafb,#17222b); font-size:12px; color:light-dark(#536575,#aab8c2); }
+        .node.current { border-color:#e53935; background:#e539350b; color:light-dark(#263640,#e7edf1); font-weight:800; }
+        .branch { display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; }
+        .branch div { text-align:center; padding:7px 4px; border-radius:8px; background:light-dark(#eef3f7,#1b2730); font-size:11px; }
+        .history { margin-top:18px; }
+        .history h3 { margin-bottom:10px; }
+        .history-list { display:flex; flex-wrap:wrap; gap:7px; }
+        .history-item { padding:6px 9px; border-radius:8px; background:light-dark(#eef3f7,#1b2730); font-size:11px; }
+        .result { display:none; padding:34px; min-height:490px; }
+        .result.show { display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; }
+        .result-icon { width:72px; height:72px; border-radius:22px; background:#e53935; color:#fff; display:grid; place-items:center; font-size:30px; font-weight:900; margin-bottom:20px; }
+        .result h2 { margin:0 0 10px; font-size:30px; letter-spacing:-.04em; }
+        .result p { max-width:560px; color:light-dark(#667784,#aebbc5); line-height:1.7; }
+        .result-advice { width:100%; max-width:560px; margin-top:10px; text-align:left; }
+        .result-advice h3 { margin:8px 0 10px; font-size:16px; }
+        .result-advice ul { margin:0; padding-left:20px; color:light-dark(#344654,#d4dee5); line-height:1.75; font-size:14px; }
+        .result-advice li { margin:5px 0; }
+        .result-advice .advice-label { display:inline-block; margin-bottom:8px; padding:5px 9px; border-radius:8px; background:light-dark(#edf3f7,#1b2730); font-size:12px; font-weight:800; color:light-dark(#536575,#c2cdd5); }
+        
+        .result .notice { margin:20px 0; padding:14px 16px; border-radius:12px; background:#fff4f4; color:#b42323; font-size:13px; font-weight:700; }
+        button { border:0; border-radius:12px; padding:12px 18px; font-weight:800; cursor:pointer; }
+        .primary { background:#e53935; color:white; }
+        .secondary { background:light-dark(#edf2f5,#1b2730); color:light-dark(#31424f,#dbe4e9); }
+        .actions { display:flex; gap:8px; margin-top:20px; }
+        .question-actions { margin-top:18px; }
+        .question-actions button { min-height:44px; }\n.nav-actions { display:flex; gap:8px; margin-top:22px; flex-wrap:wrap; }\n.nav-actions button { min-height:44px; }\n.back-button { align-self:flex-start; margin-bottom:4px; }
+        .footer-note { margin-top:18px; font-size:11px; color:light-dark(#7b8b96,#81909a); text-align:center; }
+        .editor-toggle { margin-top:18px; width:100%; }
+        .editor { display:none; margin-top:22px; padding:24px; }
+        .editor.show { display:block; }
+        .editor h2 { margin:0 0 6px; font-size:20px; }
+        .editor-help { margin:0 0 18px; color:light-dark(#667784,#aebbc5); font-size:12px; line-height:1.6; }
+        .editor-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:14px; }
+        .editor-field { display:flex; flex-direction:column; gap:6px; }
+        .editor-field.full { grid-column:1/-1; }
+        .editor-field label { font-size:11px; font-weight:800; color:light-dark(#536575,#aebbc5); }
+        .editor-field input, .editor-field textarea, .editor-field select { width:100%; border:1px solid light-dark(#d8e2e9,#2b3943); background:light-dark(#fbfcfd,#16212a); color:inherit; border-radius:10px; padding:10px 11px; font:inherit; font-size:12px; }
+        .editor-field textarea { min-height:70px; resize:vertical; }
+        .editor-options { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:14px; }
+        .editor-option { padding:12px; border:1px solid light-dark(#d8e2e9,#2b3943); border-radius:12px; }
+        .editor-option strong { display:block; margin-bottom:8px; font-size:12px; }
+        .editor-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:16px; }
+        @media(max-width:800px){
+          .header-inner{padding:18px 16px; align-items:center; gap:10px;}
+          .brand{gap:10px; min-width:0;}
+          .logo{width:40px; height:40px; border-radius:12px; font-size:19px; flex:0 0 auto;}
+          .eyebrow{font-size:9px; letter-spacing:.08em; margin-bottom:2px;}
+          h1{font-size:17px; line-height:1.25; white-space:normal;}
+          .badge{display:none;}
+          main{padding:18px 14px 36px;}
+          .progress{margin-bottom:14px; gap:6px;}
+          .dot{width:8px; height:8px; flex:0 0 auto;}
+          .progress-line{min-width:12px;}
+          .layout{grid-template-columns:1fr; gap:14px;}
+          .question{padding:22px 18px 20px; min-height:0;}
+          .step-label{font-size:11px; padding:6px 9px;}
+          .question h2{margin:18px 0 9px; font-size:24px; line-height:1.3;}
+          .question p{margin-bottom:18px; font-size:14px; line-height:1.65;}
+          .options{grid-template-columns:1fr; gap:10px; margin-top:0;}
+          .option{min-height:76px; padding:15px 14px; border-radius:14px;}
+          .option:active{transform:scale(.99);}
+          .option .key{width:30px; height:30px; margin-bottom:8px;}
+          .option strong{font-size:15px;}
+          .option span{font-size:12px;}
+          .side{order:2; padding:18px;}
+          .side h3{font-size:14px;}
+          .node{font-size:11px;}
+          .branch{grid-template-columns:1fr; gap:5px;}
+          .branch div{text-align:left; padding:8px 10px; font-size:11px;}
+          .history-list{max-height:130px; overflow:auto;}
+          .editor{padding:18px; margin-top:14px;}
+          .editor-grid,.editor-options{grid-template-columns:1fr;}
+          .editor-field.full{grid-column:auto;}
+          .editor-actions{flex-direction:column;}
+          .editor-actions button{width:100%; min-height:46px;}
+          .editor-toggle{min-height:46px;}
+          .result{padding:28px 18px; min-height:420px;}
+          .result h2{font-size:25px;}
+          .result p{font-size:14px;}
+          .result .actions,.result .actions button{width:100%;}\n  .nav-actions{flex-direction:column;}\n  .nav-actions button{width:100%;}
+        }
+        @media(max-width:380px){
+          main{padding-left:10px; padding-right:10px;}
+          .question{padding-left:15px; padding-right:15px;}
+          .question h2{font-size:22px;}
+          h1{font-size:16px;}
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app">
+        <header class="header">
+            <div class="header-inner">
+                <div class="brand">
+                    <div class="logo">+</div>
+                    <div>
+                        <div class="eyebrow">EMERGENCY RESPONSE LAB</div>
+                        <h1>응급상황 의사결정 알고리즘</h1></div>
+                </div>
+                <div class="badge">졸업작품 프로토타입</div>
+            </div>
+        </header>
+        <main>
+            <div class="progress">
+                <div class="dot active"></div>
+                <div class="progress-line"></div>
+                <div class="dot"></div>
+                <div class="progress-line"></div>
+                <div class="dot"></div>
+                <div class="progress-line"></div>
+                <div class="dot"></div>
+            </div>
+            <div class="layout">
+                <section class="card">
+                    <div id="questionView" class="question">
+                        <div class="step-label">STEP <span id="stepNo">A</span> · 초기 평가</div>
+                        <h2 id="questionTitle">환자의 현재 상태를 확인하세요.</h2>
+                        <p id="questionDesc">관찰된 상태에 가장 가까운 선택지를 하나 선택하면 다음 단계의 평가 항목이 표시됩니다.</p>
+                        <div id="options" class="options"></div>
+                        <div class="actions question-actions">
+                            <button type="button" class="secondary" onclick="goBack()">← 이전 단계로</button>
+                        </div>
+                    </div>
+                    <div id="resultView" class="result">
+                        <div class="result-icon">✓</div>
+                        <h2 id="resultTitle">알고리즘 종료</h2>
+                        <p id="resultDesc"></p>
+                        <div id="resultAdvice" class="result-advice"></div>
+                        <div class="notice">※ 본 화면은 졸업작품용 교육·시연 프로토타입입니다. 실제 상황에서는 위급하거나 판단이 어려우면 119에 신고하고, 구체적인 안내를 따르세요.</div>
+                        <div class="actions">
+                            <button class="secondary" onclick="goBack()">← 이전 단계로</button>
+                            <button class="primary" onclick="resetFlow()">처음부터 다시</button>
+                        </div>
+                    </div>
+                </section>
+                <aside class="card side">
+                    <h3>현재 알고리즘 경로</h3>
+                    <div id="tree" class="tree"></div>
+                    <div class="history">
+                        <h3>선택 기록</h3>
+                        <div id="historyList" class="history-list"><span class="history-item">아직 선택 없음</span></div>
+                    </div>
+                    <button class="secondary editor-toggle" onclick="toggleEditor()">⚙ 알고리즘 편집</button>
+                    <div class="footer-note">선택지 구조는 실제 졸업작품 알고리즘에 맞게 수정할 수 있습니다.</div>
+                </aside>
+            </div>
+            <section id="editor" class="card editor">
+                <h2>알고리즘 편집</h2>
+                <p class="editor-help">각 단계의 질문, 보기 문구, 다음 이동 단계를 직접 수정할 수 있습니다. 저장하면 현재 브라우저 화면에 바로 반영됩니다.</p>
+                <div class="editor-grid">
+                    <div class="editor-field">
+                        <label>편집할 단계</label>
+                        <select id="editNode" onchange="loadEditor()"></select>
+                    </div>
+                    <div class="editor-field">
+                        <label>단계 코드</label>
+                        <input id="editCode" disabled>
+                    </div>
+                    <div class="editor-field full">
+                        <label>질문</label>
+                        <input id="editTitle">
+                    </div>
+                    <div class="editor-field full">
+                        <label>설명</label>
+                        <textarea id="editDesc"></textarea>
+                    </div>
+                </div>
+                <div id="editorOptions" class="editor-options"></div>
+                <div class="editor-actions">
+                    <button class="primary" onclick="saveEditor()">변경사항 저장</button>
+                    <button class="secondary" onclick="addNode()">새 단계 추가</button>
+                    <button class="secondary" onclick="resetAlgorithm()">기본 알고리즘으로 복원</button>
+                </div>
+            </section>
+        </main>
+    </div>
+    <script>
+        const defaultFlow = {
+         A:{title:'어디가 아픈가요?',desc:'환자가 호소하는 주된 통증 또는 증상 부위를 하나 선택하세요.',options:[
+          {key:'가',text:'머리',sub:'두통·어지러움·의식 변화·머리 외상 등',next:'H'},
+          {key:'나',text:'가슴',sub:'흉통·호흡곤란·심계항진·가슴 외상 등',next:'C'},
+          {key:'다',text:'배',sub:'복통·복부 외상·출혈 등',next:'B'},
+          {key:'라',text:'상지',sub:'어깨·팔·손의 통증·외상·감각 이상 등',next:'U'},
+          {key:'마',text:'하지',sub:'엉덩이·다리·발의 통증·외상·보행 이상 등',next:'L'},
+          {key:'바',text:'생식기',sub:'통증·출혈·외상·부종 등',next:'G'}]},
+         H:{title:'머리에 어떤 증상이 있나요?',desc:'주된 증상에 가장 가까운 항목을 선택하세요.',options:[{key:'가',text:'두통',sub:'갑작스럽거나 지속되는 머리 통증',next:'H1'},{key:'나',text:'어지러움',sub:'현기증·균형 이상 등',next:'H2'},{key:'다',text:'의식 변화',sub:'혼돈·졸림·반응 저하 등',next:'H3'},{key:'라',text:'외상',sub:'넘어짐·충돌·추락 등',next:'H4'},{key:'마',text:'경련',sub:'경련 또는 발작 양상',next:'H5'}]},
+         H1:{title:'두통은 어떻게 시작되었나요?',desc:'발생 양상과 동반 증상을 확인합니다.',options:[{key:'가',text:'갑자기 발생',sub:'갑작스럽고 매우 심한 통증',next:'END_C'},{key:'나',text:'서서히 발생',sub:'점차 심해진 통증',next:'END_B'},{key:'다',text:'외상 후 발생',sub:'충격 이후 시작된 통증',next:'END_C'}]},
+         H2:{title:'어지러움과 함께 어떤 증상이 있나요?',desc:'동반되는 신경학적 증상을 확인합니다.',options:[{key:'가',text:'보행 이상',sub:'서 있거나 걷기 어려움',next:'END_C'},{key:'나',text:'구토',sub:'어지러움과 함께 구토',next:'END_B'},{key:'다',text:'기타',sub:'특이 동반 증상 없음',next:'END_B'}]},
+         H3:{title:'의식 변화의 정도는 어떤가요?',desc:'환자의 반응과 의식 수준을 재평가합니다.',options:[{key:'가',text:'정상에 가까움',sub:'대화와 지시 수행 가능',next:'END_B'},{key:'나',text:'혼돈·졸림',sub:'반응이 느리거나 불분명함',next:'END_C'},{key:'다',text:'반응 없음',sub:'자극에도 반응하지 않음',next:'END_D'}]},
+         H4:{title:'머리 외상은 어떻게 발생했나요?',desc:'외상 기전을 확인합니다.',options:[{key:'가',text:'넘어짐·충돌',sub:'낙상 또는 물체와의 충돌',next:'END_C'},{key:'나',text:'교통사고',sub:'차량·이륜차·보행자 사고 등',next:'END_C'},{key:'다',text:'추락',sub:'높은 곳에서 떨어짐',next:'END_D'}]},
+         H5:{title:'경련 후 환자의 상태는 어떤가요?',desc:'경련이 끝난 뒤 의식과 호흡을 확인합니다.',options:[{key:'가',text:'회복됨',sub:'대화와 반응이 회복됨',next:'END_B'},{key:'나',text:'의식 저하',sub:'회복이 지연되거나 혼돈 상태',next:'END_C'},{key:'다',text:'반응 없음',sub:'호흡·의식 확인 필요',next:'END_D'}]},
+         C:{title:'가슴에 어떤 증상이 있나요?',desc:'주된 증상에 가장 가까운 항목을 선택하세요.',options:[{key:'가',text:'흉통',sub:'가슴의 압박감·통증·불편감',next:'C1'},{key:'나',text:'호흡곤란',sub:'숨이 차거나 호흡이 어려움',next:'C2'},{key:'다',text:'심계항진',sub:'심장이 빠르거나 불규칙하게 뛰는 느낌',next:'C3'},{key:'라',text:'외상',sub:'가슴 부위 충격 또는 상처',next:'C4'}]},
+         C1:{title:'흉통은 언제 시작되었나요?',desc:'발생 시점과 상황을 확인합니다.',options:[{key:'가',text:'갑자기 발생',sub:'갑작스러운 흉통',next:'END_C'},{key:'나',text:'운동·활동 중',sub:'활동과 관련해 발생',next:'END_C'},{key:'다',text:'안정 시 발생',sub:'쉬는 중에도 지속',next:'END_C'}]},
+         C2:{title:'호흡 상태는 어떤가요?',desc:'호흡곤란의 정도와 환자 상태를 확인합니다.',options:[{key:'가',text:'대화 가능',sub:'문장으로 대화 가능',next:'END_B'},{key:'나',text:'대화 어려움',sub:'숨이 차서 말하기 어려움',next:'END_C'},{key:'다',text:'반응 없음',sub:'의식·호흡 즉시 확인 필요',next:'END_D'}]},
+         C3:{title:'심계항진과 함께 어떤 증상이 있나요?',desc:'동반 증상을 확인합니다.',options:[{key:'가',text:'흉통 동반',sub:'가슴 통증이 함께 있음',next:'END_C'},{key:'나',text:'실신·어지러움',sub:'의식 소실 또는 심한 어지러움',next:'END_C'},{key:'다',text:'기타',sub:'특이 증상 없음',next:'END_B'}]},
+         C4:{title:'가슴 외상의 정도를 확인하세요.',desc:'호흡과 의식 상태를 함께 확인합니다.',options:[{key:'가',text:'호흡 정상',sub:'호흡 상태가 안정적임',next:'END_B'},{key:'나',text:'호흡곤란',sub:'숨쉬기 어려움',next:'END_C'},{key:'다',text:'반응 없음',sub:'의식·호흡 즉시 확인 필요',next:'END_D'}]},
+         B:{title:'배에 어떤 증상이 있나요?',desc:'복부의 주요 증상 또는 위치를 선택하세요.',options:[{key:'가',text:'상복부 통증',sub:'명치·상복부 중심',next:'B1'},{key:'나',text:'하복부 통증',sub:'아랫배 중심',next:'B2'},{key:'다',text:'우측 복통',sub:'오른쪽 복부 중심',next:'B3'},{key:'라',text:'좌측 복통',sub:'왼쪽 복부 중심',next:'B4'},{key:'마',text:'복부 외상',sub:'충격·사고 후 발생',next:'B5'}]},
+         B1:{title:'상복부 통증의 양상은?',desc:'통증의 시작과 동반 증상을 확인합니다.',options:[{key:'가',text:'갑작스러운 통증',sub:'갑자기 시작된 심한 통증',next:'END_C'},{key:'나',text:'지속되는 통증',sub:'계속되는 불편감 또는 통증',next:'END_B'},{key:'다',text:'구토 동반',sub:'구토가 함께 발생',next:'END_C'}]},
+         B2:{title:'하복부 통증과 함께 어떤 증상이 있나요?',desc:'동반 증상을 확인합니다.',options:[{key:'가',text:'출혈 동반',sub:'비정상적인 출혈',next:'END_C'},{key:'나',text:'발열 동반',sub:'열 또는 오한',next:'END_C'},{key:'다',text:'기타',sub:'특이 동반 증상 없음',next:'END_B'}]},
+         B3:{title:'우측 복통의 상태는?',desc:'통증의 강도와 진행 양상을 확인합니다.',options:[{key:'가',text:'점점 심해짐',sub:'시간이 지나며 악화',next:'END_C'},{key:'나',text:'경미함',sub:'일상 활동 가능',next:'END_B'},{key:'다',text:'반응 없음',sub:'의식 상태 이상 동반',next:'END_D'}]},
+         B4:{title:'좌측 복통의 상태는?',desc:'통증과 전신 상태를 확인합니다.',options:[{key:'가',text:'경미함',sub:'일상 활동 가능',next:'END_B'},{key:'나',text:'심한 통증',sub:'활동이 어려울 정도의 통증',next:'END_C'},{key:'다',text:'의식 저하',sub:'전신 상태 변화 동반',next:'END_D'}]},
+         B5:{title:'복부 외상 후 상태는?',desc:'외상 후 의식과 순환 상태를 확인합니다.',options:[{key:'가',text:'안정적',sub:'의식과 호흡이 안정적',next:'END_B'},{key:'나',text:'심한 통증·출혈',sub:'심한 통증 또는 출혈 의심',next:'END_C'},{key:'다',text:'반응 없음',sub:'의식 반응이 없음',next:'END_D'}]},
+         U:{title:'상지의 어떤 문제가 있나요?',desc:'어깨·팔·손에서 가장 가까운 증상을 선택하세요.',options:[{key:'가',text:'통증',sub:'어깨·팔·손의 통증',next:'U1'},{key:'나',text:'골절 의심',sub:'변형·심한 압통·외상 등',next:'U2'},{key:'다',text:'출혈',sub:'외부 출혈 또는 상처',next:'U3'},{key:'라',text:'감각 이상',sub:'저림·감각 저하·마비감',next:'U4'}]},
+         U1:{title:'상지 통증은 어떤 상황에서 발생했나요?',desc:'외상 여부와 기능을 확인합니다.',options:[{key:'가',text:'외상 후',sub:'넘어짐·충돌 등 이후',next:'END_C'},{key:'나',text:'움직일 때 심함',sub:'동작에 따라 통증 증가',next:'END_B'},{key:'다',text:'휴식 중에도 심함',sub:'지속되는 심한 통증',next:'END_C'}]},
+         U2:{title:'골절이 의심되는 부위의 상태는?',desc:'변형과 말단 순환·감각을 확인합니다.',options:[{key:'가',text:'변형 있음',sub:'육안상 비정상 정렬',next:'END_C'},{key:'나',text:'감각 이상',sub:'저림·감각 저하 등',next:'END_C'},{key:'다',text:'기능 제한',sub:'움직임이 제한됨',next:'END_B'}]},
+         U3:{title:'출혈 상태는 어떤가요?',desc:'출혈량과 지속 여부를 확인합니다.',options:[{key:'가',text:'경미함',sub:'소량의 출혈',next:'END_B'},{key:'나',text:'지속적 출혈',sub:'계속되는 출혈',next:'END_C'},{key:'다',text:'심한 출혈',sub:'많은 양의 출혈 의심',next:'END_D'}]},
+         U4:{title:'감각 이상과 함께 어떤 증상이 있나요?',desc:'운동 기능과 전신 상태를 확인합니다.',options:[{key:'가',text:'경미한 저림',sub:'일시적 또는 국소적 증상',next:'END_B'},{key:'나',text:'근력 저하',sub:'팔이나 손의 힘이 떨어짐',next:'END_C'},{key:'다',text:'심한 마비',sub:'뚜렷한 운동 기능 저하',next:'END_D'}]},
+         L:{title:'하지의 어떤 문제가 있나요?',desc:'엉덩이·다리·발에서 가장 가까운 증상을 선택하세요.',options:[{key:'가',text:'통증',sub:'다리·무릎·발의 통증',next:'L1'},{key:'나',text:'골절 의심',sub:'변형·심한 압통·외상 등',next:'L2'},{key:'다',text:'출혈',sub:'외부 출혈 또는 상처',next:'L3'},{key:'라',text:'보행 불가',sub:'서거나 걷기 어려움',next:'L4'}]},
+         L1:{title:'하지 통증은 어떤 상황에서 발생했나요?',desc:'외상 여부와 보행 상태를 확인합니다.',options:[{key:'가',text:'외상 후',sub:'넘어짐·충돌 등 이후',next:'END_C'},{key:'나',text:'보행 가능',sub:'걸을 수 있음',next:'END_B'},{key:'다',text:'심한 통증',sub:'보행이 어려울 정도',next:'END_C'}]},
+         L2:{title:'골절이 의심되는 부위의 상태는?',desc:'변형과 말단 순환·감각을 확인합니다.',options:[{key:'가',text:'변형 있음',sub:'육안상 비정상 정렬',next:'END_C'},{key:'나',text:'감각 이상',sub:'저림·감각 저하 등',next:'END_C'},{key:'다',text:'기능 제한',sub:'움직임이 제한됨',next:'END_B'}]},
+         L3:{title:'하지 출혈 상태는 어떤가요?',desc:'출혈량과 지속 여부를 확인합니다.',options:[{key:'가',text:'경미함',sub:'소량의 출혈',next:'END_B'},{key:'나',text:'지속적 출혈',sub:'계속되는 출혈',next:'END_C'},{key:'다',text:'심한 출혈',sub:'많은 양의 출혈 의심',next:'END_D'}]},
+         L4:{title:'보행이 어려운 이유는 무엇인가요?',desc:'통증과 의식·신경학적 상태를 확인합니다.',options:[{key:'가',text:'통증 때문',sub:'통증으로 걷기 어려움',next:'END_C'},{key:'나',text:'감각·근력 이상',sub:'저림·마비·힘 빠짐',next:'END_C'},{key:'다',text:'의식 이상',sub:'전신 상태 변화 동반',next:'END_D'}]},
+         G:{title:'생식기에는 어떤 증상이 있나요?',desc:'통증·출혈·외상 등 가장 가까운 증상을 선택하세요.',options:[{key:'가',text:'통증',sub:'생식기 또는 주변부 통증',next:'G1'},{key:'나',text:'출혈',sub:'비정상적인 출혈',next:'G2'},{key:'다',text:'외상',sub:'충격·사고 후 발생',next:'G3'},{key:'라',text:'부종·기타',sub:'부종 또는 기타 이상',next:'G4'}]},
+         G1:{title:'생식기 통증의 상태는?',desc:'통증의 갑작스러운 발생과 강도를 확인합니다.',options:[{key:'가',text:'갑작스럽고 심함',sub:'갑자기 시작된 심한 통증',next:'END_C'},{key:'나',text:'지속되지만 안정적',sub:'지속되는 불편감',next:'END_B'},{key:'다',text:'의식 저하 동반',sub:'전신 상태 변화',next:'END_D'}]},
+         G2:{title:'출혈의 정도는 어떤가요?',desc:'출혈량과 전신 상태를 확인합니다.',options:[{key:'가',text:'소량',sub:'경미한 출혈',next:'END_B'},{key:'나',text:'지속적 출혈',sub:'계속되는 출혈',next:'END_C'},{key:'다',text:'심한 출혈·어지러움',sub:'많은 출혈 또는 전신 증상',next:'END_D'}]},
+         G3:{title:'생식기 외상 후 상태는?',desc:'출혈과 의식·호흡 상태를 함께 확인합니다.',options:[{key:'가',text:'안정적',sub:'의식·호흡이 안정적',next:'END_B'},{key:'나',text:'통증·출혈',sub:'통증 또는 출혈 동반',next:'END_C'},{key:'다',text:'반응 없음',sub:'의식 반응이 없음',next:'END_D'}]},
+         G4:{title:'부종 또는 기타 증상의 상태는?',desc:'갑작스러운 발생과 전신 증상을 확인합니다.',options:[{key:'가',text:'경미함',sub:'전신 증상 없음',next:'END_B'},{key:'나',text:'통증 동반',sub:'통증이 함께 있음',next:'END_C'},{key:'다',text:'전신 상태 저하',sub:'의식 저하·심한 어지러움 등',next:'END_D'}]}
+        };
+        const FLOW_VERSION='body-location-v1';
+        let flow=localStorage.getItem('emergencyFlowVersion')===FLOW_VERSION?JSON.parse(localStorage.getItem('emergencyFlow')||'null')||JSON.parse(JSON.stringify(defaultFlow)):JSON.parse(JSON.stringify(defaultFlow));
+        if(localStorage.getItem('emergencyFlowVersion')!==FLOW_VERSION){localStorage.setItem('emergencyFlowVersion',FLOW_VERSION);localStorage.setItem('emergencyFlow',JSON.stringify(flow));}
+        const ends={
+         END_A:{title:'즉시 119 신고',desc:'반응이 없거나 정상적으로 숨 쉬지 않는다면 즉시 119에 신고하고 스피커폰으로 신고요원의 안내를 따르세요.',advice:['주변 사람에게 119 신고와 자동심장충격기(AED) 요청을 부탁하세요.','정상 호흡이 없거나 헐떡이기만 한다면 신고요원의 안내에 따라 가슴압박을 시작하세요.','음식이나 물을 먹이지 말고, 혼자 두지 마세요.']},
+         END_B:{title:'상태 관찰 및 필요한 경우 병원 방문',desc:'상태가 안정적으로 보여도 증상이 지속되거나 새 증상이 나타나는지 살펴보세요.',advice:['활동을 멈추고 편안한 자세로 쉬게 하세요.','호흡, 의식, 피부색, 통증의 정도가 변하는지 계속 확인하세요.','증상 시작 시각과 변화, 복용 중인 약이나 알려진 질환을 메모해 의료진에게 전달하세요.','출혈이 있다면 깨끗한 천이나 거즈로 직접 눌러 지혈하세요. 박힌 물체는 빼지 마세요.','증상이 악화되거나 흉통·호흡곤란·의식 변화·심한 출혈이 나타나면 즉시 119에 신고하세요.']},
+         END_C:{title:'빠른 평가와 간단한 응급처치',desc:'증상이 심하거나 갑자기 시작됐거나 악화된다면 119에 신고하세요. 직접 운전하기보다 도움을 요청하세요.',advice:['움직임을 멈추고 환자가 가장 편하게 숨 쉴 수 있는 자세로 쉬게 하세요.','출혈은 깨끗한 천이나 거즈로 지속해서 직접 압박하세요. 피가 배어 나와도 처음 댄 천을 떼지 말고 위에 덧대세요.','다친 부위는 가능한 한 움직이지 않게 지지하세요. 변형된 뼈를 맞추거나 억지로 펴지 마세요.','화상이라면 흐르는 시원한 물로 식히세요. 얼음이나 연고를 바르거나 물집을 터뜨리지 마세요.','음식·물·약을 임의로 먹이지 말고, 상태가 나빠지면 즉시 119에 신고하세요.']},
+         END_D:{title:'즉시 119 신고',desc:'의식이 없거나 반응이 없고, 정상 호흡이 아니거나 심한 출혈·호흡 문제가 있다면 즉시 119에 신고하세요.',advice:['주변 사람에게 신고를 부탁하고, 가능하면 휴대전화를 스피커폰으로 켜세요.','정상적으로 숨 쉬지 않으면 신고요원의 지시에 따라 가슴압박과 AED 사용을 시작하세요.','정상 호흡이 있는 무의식 환자는 목·척추 손상이 의심되지 않을 때에만 기도 유지를 위해 옆으로 돌리세요. 외상이 의심되면 불필요하게 움직이지 마세요.','심한 출혈은 깨끗한 천이나 거즈로 강하게 직접 압박하세요. 박힌 물체는 제거하지 마세요.','경련 중에는 주변의 위험한 물건을 치우고 머리를 보호하세요. 몸을 억누르거나 입에 아무것도 넣지 마세요.']}
+        };
+        let current='A', history=[];
+        function render(){
+         const q=flow[current]; document.getElementById('questionView').style.display='flex'; document.getElementById('resultView').classList.remove('show');
+         document.getElementById('stepNo').textContent=current; document.getElementById('questionTitle').textContent=q.title; document.getElementById('questionDesc').textContent=q.desc;
+         const box=document.getElementById('options'); box.innerHTML=''; q.options.forEach(o=>{const b=document.createElement('button');b.className='option';b.innerHTML=`<span class="key">${o.key}</span><strong>${o.text}</strong><span>${o.sub}</span>`;b.onclick=()=>choose(o);box.appendChild(b)});
+         renderTree(); renderHistory();
+        }
+        function choose(o){history.push({from:current,key:o.key,text:o.text}); if(o.next.startsWith('END_')) showEnd(o.next); else {current=o.next;render();}}
+        function goBack(){
+         if(history.length===0){alert('첫 단계입니다. 더 이상 이전 단계가 없습니다.');return;}
+         const previous=history.pop();
+         current=previous.from;
+         render();
+         window.scrollTo({top:0,behavior:'smooth'});
+        }
+        function getSpecificAdvice(k){
+         const mainArea = history.length ? history[0].text : '';
+         const choices = history.map(x=>x.text);
+         const symptom = choices.length > 1 ? choices[1] : '';
+         const detail = choices.length > 2 ? choices[choices.length-1] : '';
+         const base = {
+          END_A:{title:'즉시 119 신고',desc:'반응이 없거나 정상적으로 숨 쉬지 않는다면 즉시 119에 신고하고 신고요원의 안내를 따르세요.',advice:['주변 사람에게 119 신고와 AED 요청을 부탁하세요.','정상 호흡이 없거나 헐떡이기만 한다면 신고요원의 안내에 따라 가슴압박을 시작하세요.','음식이나 물을 먹이지 말고 혼자 두지 마세요.']},
+          END_B:{title:'상태 관찰 및 필요한 경우 병원 방문',desc:'현재 상태를 살피되, 증상이 지속되거나 악화되면 의료기관에서 평가받으세요.',advice:['활동을 멈추고 편안한 자세로 쉬게 하세요.','의식·호흡·피부색·통증이 변하는지 확인하세요.','증상 시작 시각과 변화, 복용 약 정보를 기록하세요.','흉통, 호흡곤란, 의식 변화, 심한 출혈 또는 갑작스러운 악화가 있으면 119에 신고하세요.']},
+          END_C:{title:'빠른 의료 평가 및 상황별 응급처치',desc:'증상이 심하거나 갑자기 시작됐거나 악화되면 119에 신고하세요. 환자를 혼자 두지 마세요.',advice:['활동을 멈추고 환자가 편하게 쉴 수 있도록 도와주세요.','음식·물·약을 임의로 먹이지 마세요.','아래 증상별 도움말을 확인하고 위험 신호가 있으면 즉시 119에 신고하세요.']},
+          END_D:{title:'즉시 119 신고',desc:'생명이 위험할 수 있는 상황입니다. 즉시 119에 신고하고 신고요원의 지시에 따르세요.',advice:['휴대전화를 스피커폰으로 켜고 위치와 환자 상태를 알리세요.','정상 호흡이 없으면 신고요원의 지시에 따라 CPR/AED를 시행하세요.','음식이나 물을 먹이지 말고, 환자 상태를 계속 확인하세요.']}
+         };
+         const specific = [];
+         if(mainArea==='머리'){
+          if(symptom==='두통'){
+           specific.push('갑자기 시작된 극심한 두통, 얼굴 한쪽 처짐, 한쪽 팔·다리 힘 빠짐, 말이 어눌해짐, 의식 변화가 있으면 즉시 119에 신고하세요.');
+           specific.push('환자를 쉬게 하고 증상 시작 시각을 기록하세요. 임의로 음식·물·약을 주지 마세요.');
+          } else if(symptom==='어지러움'){
+           specific.push('넘어지지 않도록 앉거나 눕게 하고, 혼자 걷거나 운전하지 않도록 하세요.');
+           specific.push('말이 어눌해짐, 한쪽 마비, 갑작스러운 심한 두통, 걷기 어려움이 동반되면 즉시 119에 신고하세요.');
+          } else if(symptom==='의식 변화'){
+           specific.push('반응과 정상 호흡을 확인하세요. 정상 호흡이 없거나 헐떡이기만 하면 119 신고 후 신고요원의 지시에 따라 CPR/AED를 시행하세요.');
+           specific.push('정상 호흡이 있는 무의식 환자에게 음식·물을 주지 마세요. 목·척추 손상이 의심되면 불필요하게 움직이지 마세요.');
+          } else if(symptom==='외상'){
+           specific.push('머리와 목을 가능한 한 움직이지 않게 하고, 환자를 혼자 두지 마세요.');
+           specific.push('의식 저하, 반복 구토, 경련, 심해지는 두통, 귀·코에서 피나 맑은 액체가 나오는 경우 즉시 119에 신고하세요.');
+          } else if(symptom==='경련'){
+           specific.push('주변의 단단하거나 날카로운 물건을 치우고 머리 아래에 부드러운 것을 받쳐 다치지 않게 하세요.');
+           specific.push('몸을 억지로 붙잡거나 입에 물건을 넣지 마세요. 경련 시간을 재고, 끝난 뒤 호흡을 확인하세요. 처음 발생했거나 5분 이상 지속되거나 반복되면 119에 신고하세요.');
+          } else {
+           specific.push('환자를 안전하게 앉히거나 눕히고, 갑작스러운 신경학적 변화가 있는지 확인하세요.');
+          }
+         } else if(mainArea==='가슴'){
+          if(symptom==='호흡곤란'){
+           specific.push('환자가 가장 숨쉬기 편한 자세로 앉거나 상체를 세워 쉬게 하고, 꽉 끼는 옷을 느슨하게 하세요.');
+           specific.push('심한 호흡곤란, 입술이 파래짐, 말을 하기 어려움, 의식 저하가 있으면 즉시 119에 신고하세요.');
+          } else if(symptom==='흉통'){
+           specific.push('활동을 즉시 멈추고 편안한 자세로 쉬게 하세요. 혼자 걷거나 직접 운전하게 하지 마세요.');
+           specific.push('압박감·쥐어짜는 통증, 식은땀, 숨참, 메스꺼움, 팔·턱·등으로 퍼지는 통증은 응급 신호일 수 있으므로 즉시 119에 신고하세요.');
+          } else if(symptom==='심계항진'){
+           specific.push('움직임을 멈추고 앉아서 쉬게 하며, 시작 시각과 지속 시간을 기록하세요.');
+           specific.push('흉통, 호흡곤란, 실신 또는 심한 어지러움이 함께 있으면 즉시 119에 신고하세요. 임의로 다른 사람의 약을 먹이지 마세요.');
+          } else if(symptom==='외상'){
+           specific.push('환자를 편안한 자세로 쉬게 하고 가슴을 강하게 누르거나 붕대로 꽉 감지 마세요.');
+           specific.push('호흡이 나빠지거나 심한 통증, 창백함, 의식 변화가 있으면 즉시 119에 신고하세요.');
+          }
+         } else if(mainArea==='배'){
+          specific.push('편안한 자세로 쉬게 하고 복부를 누르거나 마사지하지 마세요.');
+          specific.push('심한 복통, 배가 딱딱해짐, 실신·창백함, 피를 토함, 혈변, 임신 가능성이 있는 상태의 심한 통증이나 출혈은 즉시 119 또는 긴급 의료 평가가 필요합니다.');
+          specific.push('의료진의 평가 전에는 음식·물을 억지로 먹이거나 임의로 약·하제를 주지 마세요.');
+         } else if(mainArea==='상지'){
+          if(symptom==='출혈'){
+           specific.push('깨끗한 거즈나 천으로 상처를 직접 강하게 누르세요. 피가 배어 나와도 떼지 말고 위에 덧대어 계속 압박하세요.');
+           specific.push('출혈이 심하거나 멈추지 않거나 손이 창백·차가워지면 119에 신고하세요. 상처에 박힌 물체는 빼지 마세요.');
+          } else if(symptom==='골절 의심'){
+           specific.push('다친 팔을 발견된 자세 그대로 지지하고 움직이지 않게 하세요. 뼈를 맞추거나 튀어나온 뼈를 밀어 넣지 마세요.');
+           specific.push('반지·시계는 부종이 심해지기 전에 쉽게 빠질 때만 제거하세요. 손이 창백하거나 차갑거나 감각이 없어지면 긴급 평가가 필요합니다.');
+          } else if(symptom==='감각 이상'){
+           specific.push('팔·손을 무리하게 움직이지 말고, 갑자기 생긴 한쪽 팔의 힘 빠짐이 얼굴 처짐이나 말 어눌함과 함께 나타나면 즉시 119에 신고하세요.');
+          } else {
+           specific.push('팔을 무리하게 사용하지 말고 편안한 위치에서 쉬게 하세요. 최근 외상이나 심한 부종이 있다면 의료기관에서 평가받으세요.');
+           specific.push('가슴 통증·호흡곤란·식은땀이 함께 있거나 갑작스러운 마비가 있으면 즉시 119에 신고하세요.');
+          }
+         } else if(mainArea==='하지'){
+          if(symptom==='출혈'){
+           specific.push('깨끗한 거즈나 천으로 상처를 직접 강하게 누르고, 출혈이 계속되면 압박을 유지하면서 119에 신고하세요.');
+           specific.push('상처에 박힌 물체는 제거하지 말고, 심한 출혈 환자에게 음식이나 물을 주지 마세요.');
+          } else if(symptom==='골절 의심'){
+           specific.push('다친 다리를 발견된 자세 그대로 지지하고 체중을 싣거나 걷게 하지 마세요. 뼈를 맞추거나 억지로 펴지 마세요.');
+           specific.push('발이 창백하거나 차갑거나 저린 경우, 변형이 뚜렷하거나 통증이 심한 경우 긴급 의료 평가를 받으세요.');
+          } else if(symptom==='보행 불가'){
+           specific.push('억지로 일으켜 걷게 하지 말고 안전한 자세로 쉬게 하세요. 넘어짐이나 척추 손상이 의심되면 불필요하게 움직이지 마세요.');
+           specific.push('갑작스러운 마비·감각 소실, 심한 통증, 의식 변화가 있으면 즉시 119에 신고하세요.');
+          } else {
+           specific.push('통증이 있는 다리에 체중을 싣지 말고 편안하게 쉬게 하세요. 외상 후 부종이 있으면 천으로 감싼 냉찜질을 짧게 적용할 수 있으며 얼음을 피부에 직접 대지 마세요.');
+          }
+         } else if(mainArea==='생식기'){
+          if(symptom==='출혈'){
+           specific.push('환자를 눕히거나 편안한 자세로 쉬게 하고 출혈량과 어지러움 여부를 관찰하세요.');
+           specific.push('심한 출혈, 실신할 듯한 느낌, 창백함, 임신 중 출혈이 있으면 즉시 119에 신고하세요. 질 안에 물건이나 거즈를 넣어 막지 마세요.');
+          } else if(symptom==='외상'){
+           specific.push('사생활과 체온을 보호하고 불필요한 움직임을 줄이세요. 외부 출혈은 깨끗한 천으로 부드럽게 압박하되, 박힌 물체는 제거하지 마세요.');
+           specific.push('심한 통증·출혈, 어지러움, 의식 변화가 있으면 즉시 119에 신고하세요.');
+          } else if(symptom==='통증'){
+           specific.push('편안한 자세로 쉬게 하고 통증이 갑자기 심해지거나 붓기·구토·실신 느낌이 동반되는지 확인하세요.');
+           specific.push('갑작스럽고 심한 생식기·고환 통증이나 임신 가능성이 있는 상태의 심한 복통은 지체하지 말고 긴급 의료 평가를 받으세요.');
+          } else {
+           specific.push('부위를 누르거나 마사지하지 말고, 통증·발열·빠르게 커지는 부종이 있는지 확인하세요.');
+           specific.push('호흡곤란, 얼굴·혀 부종, 실신감 등 전신 반응이 나타나면 즉시 119에 신고하세요.');
+          }
+         }
+         const selected = base[k] || base.END_C;
+         return {title:selected.title, desc:selected.desc, advice:[...selected.advice, ...specific]};
+        }
+        function showEnd(k){
+         document.getElementById('questionView').style.display='none';
+         document.getElementById('resultView').classList.add('show');
+         const result=getSpecificAdvice(k);
+         document.getElementById('resultTitle').textContent=result.title;
+         document.getElementById('resultDesc').textContent=result.desc;
+         const advice=document.getElementById('resultAdvice');
+         advice.innerHTML='<div class="advice-label">증상별로 일반인이 할 수 있는 도움</div><ul>'+result.advice.map(item=>'<li>'+item+'</li>').join('')+'</ul>';
+         renderTree();renderHistory();
+        }
+        function renderTree(){const t=document.getElementById('tree');t.innerHTML='';const n=document.createElement('div');n.className='node current';n.textContent='현재 단계: '+current;t.appendChild(n); if(flow[current]){const br=document.createElement('div');br.className='branch';flow[current].options.forEach(o=>{const x=document.createElement('div');x.textContent=o.key+' → '+o.next;x.className='';br.appendChild(x)});t.appendChild(br)}}
+        function renderHistory(){const h=document.getElementById('historyList');h.innerHTML=history.length?history.map((x,i)=>`<span class="history-item">${i+1}. ${x.key} · ${x.text}</span>`).join(''):'<span class="history-item">아직 선택 없음</span>'}
+        function resetFlow(){current='A';history=[];render();window.scrollTo({top:0,behavior:'smooth'});}
+        function toggleEditor(){const e=document.getElementById('editor');e.classList.toggle('show');populateEditor();}
+        function populateEditor(){const s=document.getElementById('editNode');s.innerHTML=Object.keys(flow).map(k=>`<option value="${k}">${k} · ${flow[k].title}</option>`).join('');loadEditor();}
+        function loadEditor(){const k=document.getElementById('editNode').value||Object.keys(flow)[0];const q=flow[k];document.getElementById('editCode').value=k;document.getElementById('editTitle').value=q.title;document.getElementById('editDesc').value=q.desc;document.getElementById('editorOptions').innerHTML=q.options.map((o,i)=>`<div class="editor-option"><strong>보기 ${i+1} · ${o.key}</strong><div class="editor-field"><label>보기 문구</label><input id="optText${i}" value="${escapeAttr(o.text)}"></div><div class="editor-field"><label>보조 설명</label><input id="optSub${i}" value="${escapeAttr(o.sub)}"></div><div class="editor-field"><label>다음 단계 코드</label><input id="optNext${i}" value="${escapeAttr(o.next)}"></div></div>`).join('');}
+        function escapeAttr(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+        function saveEditor(){const k=document.getElementById('editNode').value;const q=flow[k];q.title=document.getElementById('editTitle').value;q.desc=document.getElementById('editDesc').value;q.options=q.options.map((o,i)=>({...o,text:document.getElementById('optText'+i).value,sub:document.getElementById('optSub'+i).value,next:document.getElementById('optNext'+i).value.trim()}));localStorage.setItem('emergencyFlow',JSON.stringify(flow));current=k;history=[];render();populateEditor();alert('변경사항이 저장되었습니다.');}
+        function addNode(){let k=prompt('새 단계 코드를 입력하세요. 예: 7');if(!k||flow[k])return alert('사용할 수 없는 코드입니다.');flow[k]={title:'새 질문',desc:'새 단계의 설명을 입력하세요.',options:[{key:'가',text:'첫 번째 보기',sub:'설명',next:'END_B'},{key:'나',text:'두 번째 보기',sub:'설명',next:'END_C'}]};localStorage.setItem('emergencyFlow',JSON.stringify(flow));populateEditor();document.getElementById('editNode').value=k;loadEditor();}
+        function resetAlgorithm(){if(confirm('기본 알고리즘으로 복원할까요?')){flow=JSON.parse(JSON.stringify(defaultFlow));localStorage.removeItem('emergencyFlow');current='A';history=[];render();populateEditor();}}
+        render();
+        populateEditor();
+    </script>
+</body>
+
+</html>
